@@ -1,0 +1,22 @@
+{
+  "name": "quizboard",
+  "version": "1.0.0",
+  "description": "A simple multiplayer quiz game with leaderboard.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dave Hill",
+  "license": "ISC",
+  "dependencies": {
+    "connect": "^3.6.1",
+    "express": "^4.15.2",
+    "finalhandler": "^1.0.2",
+    "serve-static": "^1.12.2",
+    "socket.io": "^1.7.3"
+  },
+  "devDependencies": {
+    "@types/node": "^7.0.18",
+    "typescript": "^2.3.2"
+  }
+}

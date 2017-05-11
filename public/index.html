@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<title>QuizBoard</title>
+	<!-- <link rel="stylesheet" href="css/style.css"> -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+	<!--[if IE]>
+		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->
+	<style>
+
+		.question__text,
+		.yourname h1 {
+			margin: 1em 0em;
+		}
+
+		.yourname input,
+		.yourname button {
+			margin-bottom: 0.5em;
+			margin-right: 0.5em;
+		}
+
+		.answer-card {
+			margin-bottom: 1em;
+		}
+
+		.col-info .card {
+			margin: 1.5em 0;
+		}
+
+		.answer-card .card {
+	    -webkit-transition: background-color ease-out 0.5s;
+	    -moz-transition: background-color ease-out 0.5s;
+	    -o-transition: background-color ease-out 0.5s;
+	    transition: background-color ease-out 0.5s;
+		}
+	</style>
+</head>
+
+<body id="home">
+  <nav class="navbar navbar-toggleable-md navbar-light bg-faded">
+    <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <a class="navbar-brand" href="#">Quizboard!</a>
+
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav mr-auto">
+				<li class="nav-item">
+					<a class="nav-link" href="https://www.davebuilt.co.uk">Built by Dave</a>
+				</li>
+      </ul>
+    </div>
+  </nav>
+  <div class="container">
+		<div id="app">
+
+			<div class="yourname"  :class="{ 'hidden-xs-up': registered }">
+				<h1>What is your name?</h1>
+				<form class="form-inline" @submit="setNickname">
+					<input class="form-control" type="text" placeholder="DrPotato2000" v-model="nickname">
+					<button class="btn btn-primary" :class="{ disabled: !nickname }">Quiz Me!</button>
+				</form>
+			</div>
+
+
+			<div class="row quizboard" :class="{ 'hidden-xs-up': !registered }">
+
+				<div class="col-md-8">
+
+					<h2 class="question__text">{{ question }}</h2>
+
+					<div class="row">
+			      <div class="col-md-3 answer-card" v-for="answer in answers">
+			        <div class="card" :class="{ 'bg-success': answered && answer.correct, 'bg-danger': answer.selected && !answer.correct }">
+								<div class="card-block" @click="pickAnswer(answer)">
+			            <p>{{ answer.text }}</p>
+			          </div>
+			        </div>
+			      </div>
+			    </div>
+				</div>
+				<div class="col-md-4 col-info">
+
+					<div class="card">
+						<div class="card-header">Scorecard</div>
+						<div class="card-block">
+							<h4 class="card-title">{{ nickname }}</h4>
+							<p class="card-text">{{ score != 0 ? score : 'No' }} correct answer{{ score != 1 ? 's' : ''}}.</p>
+						</div>
+					</div>
+
+					<div class="card">
+						<div class="card-header">Live Players</div>
+						<table class="table">
+						  <thead>
+						    <tr>
+						      <th>Nickname</th>
+						      <th>Score</th>
+						    </tr>
+						  </thead>
+						  <tbody>
+						    <tr v-for="(player, key, index) in currentPlayers">
+						      <td>{{ player.nickname }}</td>
+						      <td>{{ player.score }}</td>
+						    </tr>
+						  </tbody>
+						</table>
+					</div>
+
+				</div>
+			</div>
+	  </div>
+	</div>
+
+  <script src="https://unpkg.com/vue"></script>
+  <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+
+	$(function () {
+		var socket = false;
+		var app = new Vue({
+			el: '#app',
+			data: {
+				currentPlayers: {},
+				question: 'What colour is this?',
+				registered: false,
+				nickname: '',
+				playId: 0,
+				score: 0,
+				answers: [
+					'', '', '', '',
+				],
+				answered: false,
+			},
+			methods: {
+				setNickname: function(e) {
+					e.preventDefault();
+					console.log(this);
+					if(this.nickname.length) {
+						this.currentPlayers[this.playId] = {
+							playId: this.playId,
+							nickname: this.nickname,
+							score: this.score,
+						};
+						socket.emit('userNew', this.nickname);
+						this.registered = true;
+					}
+				},
+				pickAnswer: function(answer) {
+					if(this.answered) {
+						return true;
+					}
+
+					this.answered = true;
+					answer.selected = true;
+					if(answer.correct) {
+						this.score++;
+						this.currentPlayers[this.playId].score = this.score;
+						socket.emit('userAnswered', JSON.stringify({'nickname': this.nickname, 'score': this.score}));
+						console.log('WOOOP');
+					}
+				}
+			},
+			created: function() {
+					//Start socket.
+					socket = io();
+
+					var vue = this;
+
+					//Handle the server pushing us the player list.
+					socket.on('currentPlayers', function(json) {
+						vue.currentPlayers = JSON.parse(json);
+					});
+
+					//Get our player ID.
+					socket.on('initPlayId', function(newPlayId) {
+						vue.playId = newPlayId;
+					});
+
+					//Player scored, update their score.
+					socket.on('playerScored', function(json) {
+						var newScoreObj = JSON.parse(json);
+						vue.currentPlayers[newScoreObj.playId] = newScoreObj;
+					});
+
+					//When a player disconnects, remove them from the board.
+					socket.on('playerDisconnect', function(playId) {
+						delete vue.currentPlayers[playId];
+					});
+
+					//Handle the server issuing new questions.
+					socket.on('question', function(json) {
+						var rawQuestion = JSON.parse(json);
+
+			      vue.question = urldecode(rawQuestion.question);
+						vue.answers = loadAnswers(rawQuestion.incorrect_answers, rawQuestion.correct_answer);
+						vue.answered = false;
+
+
+			    });
+			}
+		});
+
+		/** Decode urlencoded strings in one step **/
+		function urldecode(url) {
+		  return decodeURIComponent(url.replace(/\+/g, ' '));
+		}
+
+		function loadAnswers(incorrect, correct) {
+			var newAnswers = [];
+
+			incorrect.forEach(function(answer) {
+				newAnswers.push({
+					text: urldecode(answer),
+					correct: false,
+					selected: false,
+				});
+			});
+
+			newAnswers.push({
+				text: urldecode(correct),
+				correct: true,
+			});
+
+			return newAnswers.sort(function(a, b){
+				if (a.text > b.text) return 1;
+		    if (a.text < b.text) return -1;
+		    return 0;
+			});
+
+		}
+
+
+
+  });
+</script>
+</body>
+
+</html>
